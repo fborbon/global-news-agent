@@ -54,6 +54,31 @@ if (catNav) {
   });
 }
 
+/* ── Date picker ─────────────────────────────────────────────────── */
+const dateSelect = document.getElementById('date-select');
+if (dateSelect) {
+  fetch('data/available_dates.json')
+    .then(r => r.json())
+    .then(dates => {
+      const current = dateSelect.dataset.current;
+      dateSelect.innerHTML = '';
+      dates.forEach(({ date, path }, i) => {
+        const opt = document.createElement('option');
+        opt.value = path;
+        opt.textContent = i === 0 ? `${date} — latest` : date;
+        if (date === current) opt.selected = true;
+        dateSelect.appendChild(opt);
+      });
+      dateSelect.addEventListener('change', () => {
+        if (dateSelect.value) window.location.href = dateSelect.value;
+      });
+    })
+    .catch(() => {
+      const wrap = dateSelect.closest('.date-selector');
+      if (wrap) wrap.style.display = 'none';
+    });
+}
+
 /* ── Duplicate ticker content to make loop seamless ─────────────── */
 const ticker = document.querySelector('.ticker');
 if (ticker) {

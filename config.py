@@ -24,7 +24,7 @@ REGIONS = [
     # Original
     "usa", "uk", "france", "germany", "spain", "japan", "china", "italy",
     # Americas
-    "canada", "mexico", "brazil",
+    "canada", "mexico", "brazil", "costa_rica",
     # Asia-Pacific
     "india", "australia", "taiwan", "singapore", "south_korea",
     # Europe / Eurasia
@@ -46,9 +46,10 @@ REGION_META = {
     "china":        {"label": "China",          "flag": "🇨🇳", "lang": "English/Chinese",  "group": "Original"},
     "italy":        {"label": "Italy",          "flag": "🇮🇹", "lang": "Italian/English",  "group": "Original"},
     # Americas
-    "canada":       {"label": "Canada",         "flag": "🇨🇦", "lang": "English/French",   "group": "Americas"},
-    "mexico":       {"label": "Mexico",         "flag": "🇲🇽", "lang": "Spanish/English",  "group": "Americas"},
-    "brazil":       {"label": "Brazil",         "flag": "🇧🇷", "lang": "Portuguese/English","group": "Americas"},
+    "canada":       {"label": "Canada",         "flag": "🇨🇦", "lang": "English/French",    "group": "Americas"},
+    "mexico":       {"label": "Mexico",         "flag": "🇲🇽", "lang": "Spanish/English",   "group": "Americas"},
+    "brazil":       {"label": "Brazil",         "flag": "🇧🇷", "lang": "Portuguese/English", "group": "Americas"},
+    "costa_rica":   {"label": "Costa Rica",     "flag": "🇨🇷", "lang": "Spanish/English",   "group": "Americas"},
     # Asia-Pacific
     "india":        {"label": "India",          "flag": "🇮🇳", "lang": "English/Hindi",    "group": "Asia-Pacific"},
     "australia":    {"label": "Australia",      "flag": "🇦🇺", "lang": "English",          "group": "Asia-Pacific"},

@@ -44,6 +44,8 @@ class WebGenerator:
             self._render_region(region, digest, today)
         self._render_breaking(breaking_events, today)
         self._save_json(region_summaries, breaking_events, today)
+        self._save_archive_index(today)
+        self._save_dates_manifest(today)
         console.log(f"[green]✓ Site generated → {self.out}[/green]")
 
     # ------------------------------------------------------------------
@@ -127,4 +129,21 @@ class WebGenerator:
         )
         (data_dir / f"breaking_{today}.json").write_text(
             json.dumps(breaking, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    def _save_archive_index(self, today: str) -> None:
+        src = self.out / "index.html"
+        if src.exists():
+            shutil.copy2(src, self.out / f"index_{today}.html")
+
+    def _save_dates_manifest(self, today: str) -> None:
+        dates = [{"date": today, "path": "index.html"}]
+        for f in sorted(self.out.glob("index_*.html"), reverse=True):
+            d = f.stem[len("index_"):]
+            if d != today:
+                dates.append({"date": d, "path": f.name})
+        data_dir = self.out / "data"
+        data_dir.mkdir(exist_ok=True)
+        (data_dir / "available_dates.json").write_text(
+            json.dumps(dates, ensure_ascii=False), encoding="utf-8"
         )

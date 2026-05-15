@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from datetime import date
 from pathlib import Path
@@ -18,9 +19,31 @@ from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 
-from config import ANTHROPIC_API_KEY, SCHEDULE_HOUR, SCHEDULE_MINUTE
+from config import ANTHROPIC_API_KEY, SCHEDULE_HOUR, SCHEDULE_MINUTE, WEB_OUTPUT_DIR
 from agents.orchestrator import OrchestratorAgent
 from web.generator import WebGenerator
+
+_DEPLOY_KEY  = Path.home() / ".ssh" / "forwardforecasting.pem"
+_DEPLOY_DEST = "ubuntu@54.78.82.101:/var/www/forwardforecasting/newssummary/"
+
+
+def _deploy() -> None:
+    if not _DEPLOY_KEY.exists():
+        console.print("[yellow]Deploy skipped — SSH key not found.[/yellow]")
+        return
+    result = subprocess.run(
+        [
+            "rsync", "-az", "--delete",
+            "-e", f"ssh -o StrictHostKeyChecking=no -i {_DEPLOY_KEY}",
+            f"{WEB_OUTPUT_DIR}/",
+            _DEPLOY_DEST,
+        ],
+        capture_output=True, text=True,
+    )
+    if result.returncode == 0:
+        console.print("[green]✓ Deployed → forwardforecasting.eu/newssummary/[/green]")
+    else:
+        console.print(f"[yellow]Deploy warning:[/yellow] {result.stderr.strip()}")
 
 console = Console()
 
@@ -159,6 +182,7 @@ def run_pipeline(resume: bool = False) -> None:
         f"[dim]Site → web/output/index.html[/dim]",
         border_style="green",
     ))
+    _deploy()
 
 
 def run_demo() -> None:
@@ -172,6 +196,7 @@ def run_demo() -> None:
     generator = WebGenerator()
     generator.generate(region_summaries=region_summaries, breaking_events=breaking_events, today=today)
     console.print(f"[green]✓ Demo site ready → web/output/index.html[/green]")
+    _deploy()
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────

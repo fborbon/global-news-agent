@@ -24,7 +24,11 @@
 <!-- ── Hero ──────────────────────────────────────────────────────── -->
 <section class="page-hero">
   <h1>Today's Global News Digest</h1>
-  <p class="hero-date">{{ today }}</p>
+  <div class="date-selector">
+    <select id="date-select" class="date-select" data-current="{{ today }}">
+      <option value="">{{ today }}</option>
+    </select>
+  </div>
   <p class="hero-sub">{{ region_cards | length }} countries &middot; 75 sources &middot; AI-summarised</p>
   {% if critical_count > 0 %}
   <a href="{{ root }}breaking.html" class="btn btn-alert">
@@ -35,7 +39,7 @@
 
 <!-- ── Region groups ─────────────────────────────────────────────── -->
 {% set groups = [
-  ("🌎 Americas",      ["canada","mexico","brazil","usa"]),
+  ("🌎 Americas",      ["canada","mexico","brazil","costa_rica","usa"]),
   ("🌍 Europe",        ["uk","france","germany","spain","italy","russia","ukraine","turkey"]),
   ("🌏 Asia-Pacific",  ["japan","china","india","australia","taiwan","singapore","south_korea"]),
   ("🕌 Middle East",   ["saudi_arabia","iran","uae"]),
