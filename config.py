@@ -12,12 +12,13 @@ WEB_OUTPUT_DIR = BASE_DIR / "web" / "output"
 TEMPLATES_DIR  = BASE_DIR / "web" / "templates"
 STATIC_DIR     = BASE_DIR / "web" / "static"
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+BEDROCK_REGION     = os.getenv("BEDROCK_REGION", "us-east-1")
 
-ORCHESTRATOR_MODEL = "claude-sonnet-4-6"
-SUMMARIZER_MODEL   = "claude-haiku-4-5-20251001"
-SCRAPER_MODEL      = "claude-haiku-4-5-20251001"
-BREAKING_MODEL     = "claude-sonnet-4-6"
+# Amazon Nova models via AWS Bedrock — no Anthropic API key required
+ORCHESTRATOR_MODEL = ""  # orchestrator is pure Python, no LLM needed
+SUMMARIZER_MODEL   = "us.amazon.nova-lite-v1:0"   # $0.06/MTok in  · $0.24/MTok out
+SCRAPER_MODEL      = ""  # scraper is pure RSS/HTTP, no LLM needed
+BREAKING_MODEL     = "us.amazon.nova-pro-v1:0"    # $0.80/MTok in  · $3.20/MTok out
 
 # 22 countries — educational scope, cost-optimised
 REGIONS = [

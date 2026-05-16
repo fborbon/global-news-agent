@@ -19,7 +19,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 
-from config import ANTHROPIC_API_KEY, DEPLOY_LOCAL_DIR, SCHEDULE_TIMES, WEB_OUTPUT_DIR
+from config import DEPLOY_LOCAL_DIR, SCHEDULE_TIMES, WEB_OUTPUT_DIR
 from agents.orchestrator import OrchestratorAgent
 from web.generator import WebGenerator
 
@@ -177,10 +177,6 @@ def run_pipeline(resume: bool = False) -> None:
         "Multi-source · Multi-region · AI-powered",
         border_style="cyan",
     ))
-
-    if not ANTHROPIC_API_KEY:
-        console.print("[red]ERROR: ANTHROPIC_API_KEY not set. Copy .env.example → .env and add your key.[/red]")
-        sys.exit(1)
 
     orchestrator = OrchestratorAgent()
     pipeline_result = orchestrator.run_pipeline(resume=resume)

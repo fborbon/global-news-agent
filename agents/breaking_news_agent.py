@@ -1,24 +1,22 @@
 """BreakingNewsAgent — detects high-impact events and synthesises cross-source summaries.
 
-Uses a single direct API call (no tool-use loop) so the token budget stays flat:
-  - Input: ~8K tokens (200 digest stories, headline+url+source+region only)
-  - Output: up to 8192 tokens (JSON array of breaking events)
-  - No second turn, no accumulated context, no rate-limit cliff.
-
-SummarizerAgent still showcases the tool-use / agentic pattern per-region.
+Uses a single direct Bedrock Converse call (no tool-use loop) so the token budget
+stays flat regardless of the number of regions processed.
 """
 from __future__ import annotations
 
 import json
+import time
 
-import anthropic
+import boto3
+from botocore.exceptions import ClientError
 from rich.console import Console
 
-from config import ANTHROPIC_API_KEY, BREAKING_CATEGORIES, BREAKING_MODEL
+from config import BEDROCK_REGION, BREAKING_CATEGORIES, BREAKING_MODEL
 
 console = Console()
 
-_MAX_TOKENS = 16000  # 25 countries can produce 15+ events × ~1500 chars each
+_MAX_TOKENS = 5000
 
 _SYSTEM = """\
 You are a BreakingNewsAgent — a senior investigative editor specialising in high-impact events.
@@ -66,13 +64,9 @@ class BreakingNewsAgent:
     """Single-call breaking news detector — no tool-use loop, no multi-turn context."""
 
     def __init__(self) -> None:
-        self.client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        self.client = boto3.client("bedrock-runtime", region_name=BEDROCK_REGION)
 
     def detect(self, region_summaries: dict[str, dict], date: str) -> list[dict]:
-        """Detect breaking events from the regional digests in one API call."""
-
-        # Compact payload: headline + url + source + region only (~40 tokens/story)
-        # 25 regions × 8 stories = 200 items × 40 tokens ≈ 8K tokens total input
         stories = []
         for region, digest in region_summaries.items():
             for s in digest.get("stories", []):
@@ -93,21 +87,22 @@ class BreakingNewsAgent:
             "Stories:\n" + json.dumps(stories, ensure_ascii=False)
         )
 
-        import time
         delay = 60
+        response = None
         for attempt in range(4):
             try:
-                response = self.client.messages.create(
-                    model=BREAKING_MODEL,
-                    max_tokens=_MAX_TOKENS,
-                    system=_SYSTEM,
-                    messages=[{"role": "user", "content": prompt}],
+                response = self.client.converse(
+                    modelId=BREAKING_MODEL,
+                    system=[{"text": _SYSTEM}],
+                    messages=[{"role": "user", "content": [{"text": prompt}]}],
+                    inferenceConfig={"maxTokens": _MAX_TOKENS},
                 )
                 break
-            except Exception as exc:
-                if "rate_limit" in str(exc).lower() and attempt < 3:
+            except ClientError as exc:
+                code = exc.response["Error"]["Code"]
+                if code in ("ThrottlingException", "ServiceUnavailableException") and attempt < 3:
                     console.log(
-                        f"[yellow][BreakingNewsAgent] rate limit — "
+                        f"[yellow][BreakingNewsAgent] throttled — "
                         f"waiting {delay}s (attempt {attempt+1}/4)[/yellow]"
                     )
                     time.sleep(delay)
@@ -115,26 +110,23 @@ class BreakingNewsAgent:
                 else:
                     raise
 
+        if response is None:
+            return []
+
         text = ""
-        for block in response.content:
-            if hasattr(block, "text"):
-                text = block.text.strip()
+        for block in response["output"]["message"]["content"]:
+            if "text" in block:
+                text = block["text"].strip()
                 break
 
-        # Strip markdown fences if Claude added them despite instructions
         if text.startswith("```"):
-            text = text.split("\n", 1)[-1]          # drop opening fence line
-            text = text.rsplit("```", 1)[0].strip()  # drop closing fence
+            text = text.split("\n", 1)[-1]
+            text = text.rsplit("```", 1)[0].strip()
 
         try:
             result = json.loads(text)
             if isinstance(result, list):
                 return result
         except (json.JSONDecodeError, TypeError):
-            console.log(f"[red][BreakingNewsAgent] JSON parse failed — returning empty list[/red]")
+            console.log("[red][BreakingNewsAgent] JSON parse failed — returning empty list[/red]")
         return []
-
-    # Keep _dispatch_tool stub so this can still be imported by anything
-    # that checks for it, though it's never called in single-call mode.
-    def _dispatch_tool(self, name: str, inputs: dict):
-        return {"error": "Not used in single-call mode"}

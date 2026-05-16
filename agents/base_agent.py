@@ -1,4 +1,4 @@
-"""Shared base class for all Claude-backed agents."""
+"""Shared base class for all Bedrock-backed agents."""
 from __future__ import annotations
 
 import json
@@ -6,10 +6,11 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any
 
-import anthropic
+import boto3
+from botocore.exceptions import ClientError
 from rich.console import Console
 
-from config import ANTHROPIC_API_KEY
+from config import BEDROCK_REGION
 
 console = Console()
 
@@ -19,11 +20,11 @@ class _StopAgent(Exception):
 
 
 class BaseAgent(ABC):
-    """Drives a Claude model through an agentic tool-use loop with retry on rate limits."""
+    """Drives an AWS Bedrock model through an agentic tool-use loop via the Converse API."""
 
     def __init__(self, model: str, system_prompt: str, tools: list[dict],
                  max_tokens: int = 4096) -> None:
-        self.client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        self.client = boto3.client("bedrock-runtime", region_name=BEDROCK_REGION)
         self.model = model
         self.system_prompt = system_prompt
         self.tools = tools
@@ -35,40 +36,47 @@ class BaseAgent(ABC):
 
     def run(self, user_message: str, **kwargs: Any) -> Any:
         """Run the agent to completion and return the final parsed result."""
-        messages: list[dict] = [{"role": "user", "content": user_message}]
+        messages: list[dict] = [
+            {"role": "user", "content": [{"text": user_message}]}
+        ]
+        tool_config = (
+            {"tools": [self._convert_tool(t) for t in self.tools]}
+            if self.tools else None
+        )
 
         while True:
-            response = self._create_with_retry(messages)
+            response = self._create_with_retry(messages, tool_config)
+            stop_reason = response["stopReason"]
+            output_content = response["output"]["message"]["content"]
 
-            # Convert SDK content blocks → plain dicts to avoid Pydantic
-            # serialisation mismatches on subsequent API calls.
-            assistant_content = _blocks_to_dicts(response.content)
-            messages.append({"role": "assistant", "content": assistant_content})
+            messages.append({"role": "assistant", "content": output_content})
 
-            if response.stop_reason == "end_turn":
-                for block in response.content:
-                    if hasattr(block, "text"):
-                        return self._parse_result(block.text)
+            if stop_reason == "end_turn":
+                for block in output_content:
+                    if "text" in block:
+                        return self._parse_result(block["text"])
                 return None
 
-            if response.stop_reason == "tool_use":
+            if stop_reason == "tool_use":
                 tool_results: list[dict] = []
                 early_stop = False
 
-                for block in response.content:
-                    if block.type != "tool_use":
+                for block in output_content:
+                    if "toolUse" not in block:
                         continue
-                    console.log(f"[dim][{self.__class__.__name__}] tool → {block.name}[/dim]")
+                    tu = block["toolUse"]
+                    console.log(f"[dim][{self.__class__.__name__}] tool → {tu['name']}[/dim]")
                     try:
-                        result = self._dispatch_tool(block.name, block.input)
+                        result = self._dispatch_tool(tu["name"], tu["input"])
                     except _StopAgent:
                         early_stop = True
                         result = {"status": "stopped"}
 
                     tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": json.dumps(result, ensure_ascii=False),
+                        "toolResult": {
+                            "toolUseId": tu["toolUseId"],
+                            "content": [{"text": json.dumps(result, ensure_ascii=False)}],
+                        }
                     })
 
                 if early_stop:
@@ -77,45 +85,59 @@ class BaseAgent(ABC):
                 messages.append({"role": "user", "content": tool_results})
 
     # ------------------------------------------------------------------
-    # Rate-limit retry wrapper
+    # Throttle retry wrapper
     # ------------------------------------------------------------------
 
-    def _create_with_retry(self, messages: list[dict], max_retries: int = 4) -> Any:
-        """Call messages.create with exponential backoff on 429 rate-limit errors."""
-        delay = 60  # start with a full-minute wait
+    def _create_with_retry(self, messages: list[dict], tool_config, max_retries: int = 4) -> Any:
+        delay = 60
+        kwargs: dict = dict(
+            modelId=self.model,
+            system=[{"text": self.system_prompt}],
+            messages=messages,
+            inferenceConfig={"maxTokens": self.max_tokens},
+        )
+        if tool_config:
+            kwargs["toolConfig"] = tool_config
+
         for attempt in range(max_retries):
             try:
-                kwargs: dict = dict(
-                    model=self.model,
-                    max_tokens=self.max_tokens,
-                    system=self.system_prompt,
-                    messages=messages,
-                )
-                if self.tools:
-                    kwargs["tools"] = self.tools
-                return self.client.messages.create(**kwargs)
-            except anthropic.RateLimitError:
-                if attempt == max_retries - 1:
+                return self.client.converse(**kwargs)
+            except ClientError as exc:
+                code = exc.response["Error"]["Code"]
+                if code in ("ThrottlingException", "ServiceUnavailableException"):
+                    if attempt == max_retries - 1:
+                        raise
+                    console.log(
+                        f"[yellow][{self.__class__.__name__}] throttled — "
+                        f"waiting {delay}s (attempt {attempt+1}/{max_retries})[/yellow]"
+                    )
+                    time.sleep(delay)
+                    delay = min(delay * 2, 300)
+                else:
                     raise
-                console.log(
-                    f"[yellow][{self.__class__.__name__}] rate limit — "
-                    f"waiting {delay}s (attempt {attempt+1}/{max_retries})[/yellow]"
-                )
-                time.sleep(delay)
-                delay = min(delay * 2, 300)  # cap at 5 min
         raise RuntimeError("Unreachable")
 
     # ------------------------------------------------------------------
-    # Subclass hooks
+    # Helpers
     # ------------------------------------------------------------------
+
+    def _convert_tool(self, tool: dict) -> dict:
+        """Convert from Anthropic tool format to Bedrock Converse toolSpec format."""
+        return {
+            "toolSpec": {
+                "name": tool["name"],
+                "description": tool.get("description", ""),
+                "inputSchema": {
+                    "json": tool.get("input_schema", {"type": "object", "properties": {}})
+                },
+            }
+        }
 
     @abstractmethod
     def _dispatch_tool(self, name: str, inputs: dict) -> Any:
-        """Route a tool-use call to the appropriate implementation.
-        May raise _StopAgent to terminate the loop early."""
+        """Route a tool-use call to the appropriate implementation."""
 
     def _parse_result(self, text: str) -> Any:
-        """Override to post-process Claude's final text response."""
         t = (text or "").strip()
         if t.startswith("```"):
             t = t.split("\n", 1)[-1]
@@ -124,25 +146,3 @@ class BaseAgent(ABC):
             return json.loads(t)
         except (json.JSONDecodeError, TypeError):
             return text
-
-
-# ------------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------------
-
-def _blocks_to_dicts(blocks) -> list[dict]:
-    """Convert Anthropic SDK content-block objects to plain serialisable dicts."""
-    result = []
-    for block in blocks:
-        if block.type == "text":
-            result.append({"type": "text", "text": block.text})
-        elif block.type == "tool_use":
-            result.append({
-                "type":  "tool_use",
-                "id":    block.id,
-                "name":  block.name,
-                "input": block.input,
-            })
-        elif hasattr(block, "model_dump"):
-            result.append(block.model_dump())
-    return result

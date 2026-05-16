@@ -28,7 +28,7 @@
 
 ## 1. Project Overview
 
-This portfolio project demonstrates a **production-grade agentic AI pipeline** built on Anthropic's Claude API. The system runs once daily at 07:15 UTC, ingesting live news from 22 countries across all continents, and publishes a fully static HTML news site featuring an interactive world map, 5-story-per-country digests, and per-region deep-dive pages. Regions are processed in parallel (4 concurrent workers). Summarisation uses Claude Haiku (cost-optimised); breaking-news detection uses Claude Sonnet (quality-critical).
+This portfolio project demonstrates a **production-grade agentic AI pipeline** built on AWS Bedrock (Amazon Nova models). The system runs once daily at 07:15 UTC, ingesting live news from 22 countries across all continents, and publishes a fully static HTML news site featuring an interactive world map, 5-story-per-country digests, and per-region deep-dive pages. Regions are processed in parallel (4 concurrent workers). Summarisation uses Nova Lite ($0.06/MTok); breaking-news detection uses Nova Pro ($0.80/MTok). Estimated cost: ~$0.95/month.
 
 ### What it does every day
 
