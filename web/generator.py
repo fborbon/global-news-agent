@@ -67,6 +67,11 @@ class WebGenerator:
 
     def generate(self, region_summaries: dict[str, dict], breaking_events: list[dict], today: str) -> None:
         console.log("[cyan]Generating static site …[/cyan]")
+        # Clear stale region pages so removed countries don't persist
+        regions_dir = self.out / "regions"
+        if regions_dir.exists():
+            shutil.rmtree(regions_dir)
+        regions_dir.mkdir()
         self._copy_static()
         topic_highlights = self._build_topic_highlights(region_summaries)
         self._render_index(region_summaries, breaking_events, today, topic_highlights)
