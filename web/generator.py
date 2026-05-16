@@ -11,6 +11,7 @@ from rich.console import Console
 from config import (
     BREAKING_CATEGORIES,
     REGION_META,
+    REGIONS,
     STORY_CATEGORIES,
     TEMPLATES_DIR,
     WEB_OUTPUT_DIR,
@@ -19,9 +20,12 @@ from config import (
 
 console = Console()
 
+# Only the actively monitored countries — keeps nav flags in sync with config
+_ACTIVE_REGION_META = {r: REGION_META[r] for r in REGIONS if r in REGION_META}
+
 # Common template context passed to every page
 _BASE_CTX = dict(
-    region_meta=REGION_META,
+    region_meta=_ACTIVE_REGION_META,
     breaking_categories=BREAKING_CATEGORIES,
     story_categories=STORY_CATEGORIES,
 )
