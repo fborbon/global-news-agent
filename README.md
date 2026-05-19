@@ -850,3 +850,4 @@ This section provides a structured checklist for review by an IT expert and an A
 | AI / ML model adequacy | Nova Lite / Nova Pro routing is well-justified. Prompt contracts and schema examples improve JSON reliability. | |
 | Legal & ethical considerations | Article summarization may raise copyright questions under EU law. Source attribution and URL preservation are positive mitigations. | |
 | Other | No pipeline failure alerting or RSS availability monitoring. Static site has no intra-day update mechanism. | |
+
