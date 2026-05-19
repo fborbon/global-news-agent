@@ -442,7 +442,9 @@ img { max-width: 100%; }
 .breaking-sidebar {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 1.25rem;
-  position: sticky; top: 5rem;
+}
+@media (min-width: 769px) {
+  .breaking-sidebar { position: sticky; top: 5rem; }
 }
 .breaking-sidebar h3 { font-size: .85rem; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); margin-bottom: 1rem; }
 .cat-nav { list-style: none; display: flex; flex-direction: column; gap: .25rem; }
