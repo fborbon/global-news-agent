@@ -30,6 +30,7 @@
 10. [Configuration Reference](#10-configuration-reference)
 11. [Cost & Resource Consumption](#11-cost--resource-consumption)
 12. [Auditing](#12-auditing)
+13. [CI/CD](#13-cicd)
 
 ---
 
@@ -851,3 +852,63 @@ This section provides a structured checklist for review by an IT expert and an A
 | Legal & ethical considerations | Article summarization may raise copyright questions under EU law. Source attribution and URL preservation are positive mitigations. | |
 | Other | No pipeline failure alerting or RSS availability monitoring. Static site has no intra-day update mechanism. | |
 
+
+---
+
+## 13. CI/CD
+
+### What is CI/CD?
+
+**CI/CD** stands for **Continuous Integration / Continuous Deployment**. It is a software engineering practice that automates the process of testing, building, and releasing code every time a change is pushed to the repository.
+
+- **Continuous Integration (CI)** — each push triggers automated checks that verify the change doesn't break the codebase.
+- **Continuous Deployment (CD)** — once checks pass, the new version is automatically shipped to the live environment without any manual step.
+
+### Key Benefits
+
+| Benefit | Description |
+|---|---|
+| **Speed** | Changes go live in seconds, not hours |
+| **Consistency** | Every deploy follows the exact same steps — no human error |
+| **Safety** | Broken code is caught before it reaches production |
+| **Traceability** | Every deployment is linked to a specific commit and author |
+| **Zero-downtime iterations** | Small frequent releases are safer than large rare ones |
+
+### How it is applied here
+
+Global News Agent runs as a **cron job on a shared EC2 instance** (`t3.small`, `eu-west-1`). The pipeline code lives at `~/news_agent` on the server. On every push to `main`, GitHub Actions SSH-es into the EC2, hard-resets the working tree to match the repo, and refreshes Python dependencies. The cron schedule (`15 7 * * *`) then picks up the new code automatically on the next daily run — no service restart is needed.
+
+**Trigger:** push to `main`
+**Runner:** `ubuntu-latest` (GitHub-hosted)
+**Secrets required:** `EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY`
+
+### Implementation Diagram
+
+```mermaid
+flowchart TD
+    DEV([👨‍💻 Developer\npushes to main])
+    GH[GitHub repository\nfborbon/global-news-agent]
+    GA[GitHub Actions\nubuntu-latest runner]
+    SSH[appleboy/ssh-action\nSSH connection]
+    EC2[EC2 t3.small\n54.78.82.101]
+    FETCH[git fetch origin main]
+    RESET[git reset --hard origin/main\ndiscards any local changes]
+    PIP[pip install -r requirements.txt]
+    DONE[✅ Code updated on EC2]
+    CRON[⏰ Cron 07:15 UTC\nnext daily run uses new code]
+
+    DEV --> GH
+    GH --> GA
+    GA --> SSH
+    SSH -->|authenticated via\nEC2_SSH_KEY secret| EC2
+    EC2 --> FETCH
+    FETCH --> RESET
+    RESET --> PIP
+    PIP --> DONE
+    DONE --> CRON
+
+    style DEV fill:#4a90d9,color:#fff
+    style DONE fill:#27ae60,color:#fff
+    style CRON fill:#8e44ad,color:#fff
+    style EC2 fill:#e67e22,color:#fff
+```
