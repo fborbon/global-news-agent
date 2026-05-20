@@ -11,7 +11,7 @@
     <div class="ticker">
       {% for ev in breaking_events %}
       <span class="ticker-item">
-        <a href="{{ root }}breaking.html#{{ ev.id }}">
+        <a href="#" onclick="document.querySelector('[data-tab=breaking]').click();document.getElementById('{{ ev.id }}')?.scrollIntoView({behavior:'smooth'});return false;">
           {{ breaking_categories[ev.category].icon }} {{ ev.title }}
         </a>
       </span>
@@ -31,7 +31,7 @@
   </div>
   <p class="hero-sub">{{ region_cards | length }} countries &middot; 171 sources &middot; AI-summarised</p>
   {% if critical_count > 0 %}
-  <a href="{{ root }}breaking.html" class="btn btn-alert">
+  <a href="#" class="btn btn-alert" onclick="document.querySelector('[data-tab=breaking]').click();return false;">
     ⚡ {{ critical_count }} Critical Breaking Event{{ 's' if critical_count != 1 }}
   </a>
   {% endif %}
@@ -113,45 +113,124 @@
 
 </div><!-- /tab-regions -->
 
-<!-- ══ Tab 3: Breaking News Ranking ═════════════════════════════ -->
+<!-- ══ Tab 3: Breaking News ══════════════════════════════════════ -->
 <div class="tab-pane" id="tab-breaking">
-  <section class="section">
-    <h2 class="section-title">⚡ Breaking News Ranking</h2>
-    {% if breaking_events %}
-    <div class="rank-list">
-      {% set rank = namespace(n=0) %}
-      {% for sev in ['critical', 'high', 'moderate'] %}
-        {% for ev in breaking_events if ev.severity == sev %}
-          {% set rank.n = rank.n + 1 %}
-          <div class="rank-card severity-{{ ev.severity }}">
-            <div class="rank-num">{{ rank.n }}</div>
-            <div class="rank-body">
-              <div class="rank-header">
-                <span>{{ breaking_categories[ev.category].icon }}</span>
-                <span class="rank-cat">{{ breaking_categories[ev.category].label }}</span>
-                <span class="severity-badge">{{ ev.severity | upper }}</span>
-              </div>
-              <h3 class="rank-title">{{ ev.title }}</h3>
-              <p class="rank-summary">{{ ev.summary }}</p>
-              <div class="rank-sources">
-                {% for src in ev.sources[:5] %}
-                {% if src.url %}
-                <a href="{{ src.url }}" target="_blank" rel="noopener" class="source-chip">{{ src.name }}</a>
-                {% else %}
-                <span class="source-chip">{{ src.name }}</span>
-                {% endif %}
+
+  {% if not breaking_events %}
+  <div class="empty-state-full">
+    <p>🌐 No breaking events detected today — the world seems calm.</p>
+  </div>
+  {% else %}
+
+  <!-- Mobile: overlay backdrop -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <!-- Mobile: edge tab to open the sidebar -->
+  <button class="sidebar-tab" id="sidebar-tab" aria-label="Open event categories" aria-expanded="false">
+    <span class="tab-icon">☰</span>
+    <span>Cats</span>
+  </button>
+
+  <div class="breaking-layout">
+
+    <!-- Sidebar nav -->
+    <aside class="breaking-sidebar" id="breaking-sidebar">
+      <h3>Event Categories</h3>
+      <ul class="cat-nav">
+        <li>
+          <a href="#" class="cat-nav-link active" data-cat="all">
+            All events <span class="count">{{ breaking_events | length }}</span>
+          </a>
+        </li>
+        {% for key, cat in breaking_categories.items() %}
+        {% set count = grouped[key] | length %}
+        {% if count > 0 %}
+        <li>
+          <a href="#" class="cat-nav-link" data-cat="{{ key }}">
+            {{ cat.icon }} {{ cat.label }}
+            <span class="count">{{ count }}</span>
+          </a>
+        </li>
+        {% endif %}
+        {% endfor %}
+      </ul>
+      <div class="sidebar-note">
+        <strong>About this section</strong>
+        <p>Breaking events are detected by the BreakingNewsAgent, which scans all
+           articles across all country feeds and cross-synthesises how different
+           outlets frame the same story. Click any source link to verify.</p>
+      </div>
+    </aside>
+
+    <!-- Events feed -->
+    <div class="breaking-feed" id="breaking-feed">
+
+      {% for key, cat in breaking_categories.items() %}
+      {% if grouped[key] %}
+      <section class="cat-section" id="{{ key }}" data-cat="{{ key }}">
+        <h2 class="cat-section-title" style="border-color: {{ cat.color }};">
+          <span>{{ cat.icon }}</span> {{ cat.label }}
+        </h2>
+
+        {% for ev in grouped[key] %}
+        <article class="breaking-detail-card severity-{{ ev.severity }}" id="{{ ev.id }}"
+          data-headline="{{ ev.title }}"
+          data-url="{{ ev.sources[0].url if ev.sources and ev.sources[0].url else '' }}"
+          data-source="{{ ev.sources | map(attribute='name') | join(', ') if ev.sources else '' }}"
+          data-cat="breaking"
+          data-region="global"
+          data-label="Breaking News"
+          data-flag="⚡">
+
+          <button class="fav-btn fav-btn--card" aria-label="Save to favorites" title="Save to favorites">☆</button>
+
+          <div class="detail-header">
+            <span class="severity-badge-large severity-{{ ev.severity }}">
+              {% if ev.severity == 'critical' %}🔴{% elif ev.severity == 'high' %}🟠{% else %}🟡{% endif %}
+              {{ ev.severity | upper }}
+            </span>
+            <h3>{{ ev.title }}</h3>
+          </div>
+
+          <div class="detail-body">
+            <div class="detail-summary-col">
+              <h4>Unified Summary</h4>
+              <p>{{ ev.summary }}</p>
+              {% if ev.analysis %}
+              <h4>Source Perspectives</h4>
+              <p class="analysis-text">{{ ev.analysis }}</p>
+              {% endif %}
+            </div>
+            <div class="detail-sources-col">
+              <h4>Verify with original sources</h4>
+              <ul class="source-list">
+                {% for src in ev.sources %}
+                <li>
+                  {% if src.url %}
+                  <a href="{{ src.url }}" target="_blank" rel="noopener" class="verify-link">
+                    🔗 {{ src.name }}
+                  </a>
+                  {% else %}
+                  <span>{{ src.name }}</span>
+                  {% endif %}
+                  {% if src.angle %}
+                  <span class="source-angle">— {{ src.angle }}</span>
+                  {% endif %}
+                </li>
                 {% endfor %}
-              </div>
+              </ul>
             </div>
           </div>
+
+        </article>
         {% endfor %}
+      </section>
+      {% endif %}
       {% endfor %}
-    </div>
-    <a href="{{ root }}breaking.html" class="btn btn-outline">Full breaking news analysis →</a>
-    {% else %}
-    <p class="empty-state">No breaking events detected today.</p>
-    {% endif %}
-  </section>
+
+    </div><!-- /.breaking-feed -->
+  </div><!-- /.breaking-layout -->
+  {% endif %}
+
 </div><!-- /tab-breaking -->
 
 <!-- ══ Tab 4: Favorites ══════════════════════════════════════════ -->

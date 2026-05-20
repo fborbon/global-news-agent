@@ -106,12 +106,19 @@ class WebGenerator:
                 "stories":  digest.get("stories", [])[:3],
             })
 
+        grouped: dict[str, list] = {k: [] for k in BREAKING_CATEGORIES}
+        for event in breaking:
+            cat = event.get("category", "")
+            if cat in grouped:
+                grouped[cat].append(event)
+
         html = tmpl.render(
             **_BASE_CTX,
             today=today,
             generated_at=generated_at,
             region_cards=region_cards,
             breaking_events=breaking,
+            grouped=grouped,
             critical_count=sum(1 for e in breaking if e.get("severity") == "critical"),
             topic_highlights=topic_highlights,
             static_root="static",
@@ -137,23 +144,13 @@ class WebGenerator:
         (self.out / "regions" / f"{region}.html").write_text(html, encoding="utf-8")
 
     def _render_breaking(self, events: list, today: str, generated_at: str | None = None) -> None:
-        tmpl = self.env.get_template("breaking.html")
-        grouped: dict[str, list] = {k: [] for k in BREAKING_CATEGORIES}
-        for event in events:
-            cat = event.get("category", "")
-            if cat in grouped:
-                grouped[cat].append(event)
-
-        html = tmpl.render(
-            **_BASE_CTX,
-            today=today,
-            generated_at=generated_at,
-            events=events,
-            grouped=grouped,
-            static_root="static",
-            root="",
-            active_region=None,
-        )
+        # Breaking news is now embedded in the main page's Breaking News tab.
+        # Generate a redirect so old links still work.
+        html = ('<!DOCTYPE html><html><head>'
+                '<meta charset="utf-8">'
+                '<meta http-equiv="refresh" content="0;url=index.html#tab-breaking">'
+                '<title>Breaking News — redirecting…</title></head>'
+                '<body><a href="index.html#tab-breaking">Go to Breaking News</a></body></html>')
         (self.out / "breaking.html").write_text(html, encoding="utf-8")
 
     # ------------------------------------------------------------------
