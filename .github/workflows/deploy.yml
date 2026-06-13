@@ -28,5 +28,5 @@ jobs:
             git reset --hard origin/main
             source .venv/bin/activate
             pip install -r requirements.txt --quiet
-            DEPLOY_LOCAL_DIR=/var/www/forwardforecasting/globalnews python main.py --regenerate
+            DEPLOY_LOCAL_DIR=/var/www/forwardforecasting/global-news-agent python main.py --regenerate
             echo "✓ Global News deployed at $(date -u)"

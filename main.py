@@ -24,7 +24,7 @@ from agents.orchestrator import OrchestratorAgent
 from web.generator import WebGenerator
 
 _DEPLOY_KEY  = Path.home() / ".ssh" / "forwardforecasting.pem"
-_DEPLOY_DEST = "ubuntu@54.78.82.101:/var/www/forwardforecasting/globalnews/"
+_DEPLOY_DEST = "ubuntu@54.78.82.101:/var/www/forwardforecasting/global-news-agent/"
 
 
 def _deploy() -> None:

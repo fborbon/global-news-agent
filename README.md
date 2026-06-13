@@ -1,6 +1,6 @@
 # 🌍 Global News Agent
 
-**🔴 Live site → [https://www.forwardforecasting.eu/globalnews/](https://www.forwardforecasting.eu/globalnews/)**
+**🔴 Live site → [https://www.forwardforecasting.eu/global-news-agent/](https://www.forwardforecasting.eu/global-news-agent/)**
 
 > A multi-agent AI system that scrapes, summarises, and analyses the world's top newspapers every day — covering **22 countries · 66 RSS sources** — and publishing a fully static news website powered by Amazon Nova on AWS Bedrock. Features an interactive world map with hover-to-preview news popups and a breaking-news detection engine that synthesises cross-source events across all monitored countries.
 >
@@ -47,7 +47,7 @@ This portfolio project demonstrates a **production-grade agentic AI pipeline** b
 | **Summarise** | `SummarizerAgent` + Nova Lite | 5 curated stories per country, topic diversity |
 | **Detect** | `BreakingNewsAgent` + Nova Pro | Up to 15 cross-source breaking events |
 | **Publish** | `WebGenerator` + Jinja2 | 24 static HTML pages + dated archives + world_news.json |
-| **Deploy** | `rsync` → EC2 | Auto-pushes to forwardforecasting.eu/globalnews/ |
+| **Deploy** | `rsync` → EC2 | Auto-pushes to forwardforecasting.eu/global-news-agent/ |
 
 ### Monitored countries — 3 sources each
 
@@ -645,7 +645,7 @@ News_agent/
 │           └── breaking.json       # Detected breaking events
 │
 ├── docs/                       # GitHub Pages deployment (copy of web/output/)
-│                               # Live: forwardforecasting.eu/globalnews/
+│                               # Live: forwardforecasting.eu/global-news-agent/
 │
 ├── config.py                   # All constants, model names, region metadata
 ├── main.py                     # CLI: --now · --resume · --demo
@@ -701,7 +701,7 @@ python -m http.server 8080 --directory web/output
 AWS_ACCESS_KEY_ID=your_key
 AWS_SECRET_ACCESS_KEY=your_secret
 BEDROCK_REGION=us-east-1
-DEPLOY_LOCAL_DIR=/var/www/forwardforecasting/globalnews
+DEPLOY_LOCAL_DIR=/var/www/forwardforecasting/global-news-agent
 ```
 
 **Running from your laptop:** leave `DEPLOY_LOCAL_DIR` unset. Output is rsynced over SSH using `~/.ssh/forwardforecasting.pem`. Deploy is skipped gracefully if the key is missing.
