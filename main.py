@@ -19,7 +19,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 
-from config import DEPLOY_LOCAL_DIR, SCHEDULE_TIMES, WEB_OUTPUT_DIR
+from config import DEPLOY_LOCAL_DIR, SCHEDULE_TIMES, SOCIAL_PULSE_ENABLED, WEB_OUTPUT_DIR
 from agents.orchestrator import OrchestratorAgent
 from web.generator import WebGenerator
 
@@ -168,6 +168,30 @@ def _load_demo_data() -> tuple[dict, list]:
     return region_summaries, breaking_events
 
 
+# ── Social Pulse ──────────────────────────────────────────────────────────────
+
+def _collect_social_pulse(today: str) -> dict | None:
+    """Run the daily Social Pulse collection; any failure only hides the tab, never the news site."""
+    if not SOCIAL_PULSE_ENABLED:
+        return None
+    try:
+        from social_pulse.collector import run as run_social_pulse
+        return run_social_pulse(today)
+    except Exception as e:
+        console.print(f"[yellow]Social Pulse skipped: {type(e).__name__}: {e}[/yellow]")
+        return None
+
+
+def _load_social_pulse() -> dict | None:
+    path = WEB_OUTPUT_DIR / "data" / "social_pulse.json"
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+    return None
+
+
 # ── Pipeline runner ───────────────────────────────────────────────────────────
 
 def run_pipeline(resume: bool = False) -> None:
@@ -182,6 +206,7 @@ def run_pipeline(resume: bool = False) -> None:
     pipeline_result = orchestrator.run_pipeline(resume=resume)
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    social_pulse = _collect_social_pulse(pipeline_result["date"]) or _load_social_pulse()
 
     generator = WebGenerator()
     generator.generate(
@@ -189,6 +214,7 @@ def run_pipeline(resume: bool = False) -> None:
         breaking_events=pipeline_result["breaking_events"],
         today=pipeline_result["date"],
         generated_at=generated_at,
+        social_pulse=social_pulse,
     )
 
     console.print(Panel.fit(
@@ -231,6 +257,7 @@ def run_regenerate() -> None:
         breaking_events=breaking_events,
         today=today,
         generated_at=generated_at,
+        social_pulse=_load_social_pulse(),
     )
     console.print(f"[green]✓ Site regenerated from {today} data[/green]")
     _deploy()
@@ -258,10 +285,18 @@ def main() -> None:
     parser.add_argument("--resume",     action="store_true", help="Skip completed regions, only redo missing steps")
     parser.add_argument("--demo",       action="store_true", help="Run with mock data (no API calls)")
     parser.add_argument("--regenerate", action="store_true", help="Rebuild site from last saved data, no API calls")
+    parser.add_argument("--social-pulse", action="store_true", help="Refresh only the Social Pulse tab, then regenerate the site")
     args = parser.parse_args()
 
     if args.demo:
         run_demo()
+        return
+
+    if args.social_pulse:
+        data = _collect_social_pulse(datetime.now(timezone.utc).date().isoformat())
+        if data:
+            WebGenerator()._save_social_pulse(data)
+        run_regenerate()
         return
 
     if args.regenerate:

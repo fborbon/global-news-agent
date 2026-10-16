@@ -256,3 +256,49 @@ function renderFavoritesTab() {
 }
 
 initFavBtns();
+
+
+/* ── Deep links: #tab-<name> opens that tab (e.g. old /social-pulse links) ── */
+(function () {
+  const m = location.hash.match(/^#tab-([a-z]+)$/);
+  const btn = m && document.querySelector('.tab-btn[data-tab="' + m[1] + '"]');
+  if (btn) btn.click();
+})();
+
+/* ── Social Pulse: topic filter and AI search ───────────────────── */
+document.querySelectorAll('.sp-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.sp-chip').forEach(c => c.classList.toggle('active', c === chip));
+    const t = chip.dataset.topic;
+    document.querySelectorAll('.sp-post').forEach(p => p.classList.toggle('hidden', t !== 'all' && p.dataset.topic !== t));
+  });
+});
+
+(function () {
+  const form = document.getElementById('sp-search-form');
+  if (!form) return;
+  const box = document.getElementById('sp-answer');
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const q = document.getElementById('sp-q').value.trim();
+    const endpoint = form.dataset.endpoint;
+    if (!q || !endpoint) return;
+    const btn = form.querySelector('button');
+    btn.disabled = true; btn.textContent = 'Thinking…';
+    box.hidden = false; box.innerHTML = '<p>Searching today\'s posts…</p>';
+    try {
+      const r = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ q }) });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Search failed');
+      let html = '<p>' + escHtml(data.answer).replace(/\[(\d+)\]/g, '<sup>[$1]</sup>') + '</p>';
+      if (data.sources && data.sources.length) {
+        html += '<ol>' + data.sources.map(s => '<li><a href="' + escHtml(s.url || '#') + '" target="_blank" rel="noopener">' + escHtml(s.title) + '</a></li>').join('') + '</ol>';
+      }
+      box.innerHTML = html;
+    } catch (err) {
+      box.innerHTML = '<p class="sp-error">' + escHtml(err.message || 'Search is temporarily unavailable.') + '</p>';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Ask';
+    }
+  });
+})();

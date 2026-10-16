@@ -138,6 +138,12 @@ SCHEDULE_TIMES = [(5, 5)]  # (hour, minute) UTC — single daily run
 # Use on the EC2 itself: DEPLOY_LOCAL_DIR=/var/www/forwardforecasting/newssummary
 DEPLOY_LOCAL_DIR = os.getenv("DEPLOY_LOCAL_DIR", "")
 
+# ── Social Pulse tab ──────────────────────────────────────────────────────────
+# Daily community/research/regulation feed (social_pulse/collector.py) plus an AI search
+# answered by the social-pulse-search Lambda (lambda/social_pulse_search), not by this host.
+SOCIAL_PULSE_ENABLED    = os.getenv("SOCIAL_PULSE_ENABLED", "1") == "1"
+SOCIAL_PULSE_SEARCH_URL = os.getenv("SOCIAL_PULSE_SEARCH_URL", "https://ciznj77ygowj5kuj7dzoibgqqu0nbjpv.lambda-url.eu-west-1.on.aws/")
+
 MAX_ARTICLES_PER_SOURCE = 5
 MAX_ARTICLE_CHARS       = 1500
 RSS_TIMEOUT             = 15

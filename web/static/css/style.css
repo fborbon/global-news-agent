@@ -599,3 +599,41 @@ a.fav-headline:hover { color: var(--accent); text-decoration: underline; }
 }
 .fav-remove:hover { color: var(--red); background: rgba(239,68,68,.1); }
 .fav-empty { text-align: center; padding: 4rem 1rem; color: var(--text-muted); font-size: .95rem; }
+
+/* ── Social Pulse tab ───────────────────────────────────────────── */
+.sp-lead { color: var(--text-muted); max-width: 900px; }
+.sp-updated { color: var(--text-muted); font-size: .8rem; margin-top: .35rem; }
+.sp-h3 { font-size: 1.05rem; margin-bottom: .9rem; }
+.sp-search-form { display: flex; gap: .5rem; max-width: 820px; }
+.sp-search-form input { flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); padding: .7rem .9rem; font: inherit; }
+.sp-search-form input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sp-search-form button { background: var(--accent); color: #fff; border: 0; border-radius: var(--radius); padding: .7rem 1.2rem; font-weight: 700; cursor: pointer; }
+.sp-search-form button:disabled { opacity: .6; cursor: wait; }
+.sp-hint { color: var(--text-muted); font-size: .78rem; margin-top: .4rem; }
+.sp-answer { margin-top: 1rem; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--radius); padding: 1rem 1.1rem; max-width: 820px; }
+.sp-answer p { margin-bottom: .6rem; }
+.sp-answer ol { padding-left: 1.2rem; font-size: .85rem; color: var(--text-muted); }
+.sp-answer .sp-error { color: var(--orange); }
+.sp-briefings { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 1rem; }
+.sp-brief { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem; }
+.sp-brief header { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; margin-bottom: .5rem; }
+.sp-brief p { font-size: .88rem; color: var(--text-muted); line-height: 1.55; }
+.sp-topic { font-weight: 700; text-transform: capitalize; }
+.sp-count { font-size: .75rem; color: var(--text-muted); white-space: nowrap; }
+.sp-mood { display: flex; height: 5px; border-radius: 3px; overflow: hidden; margin-top: .8rem; background: var(--surface2); }
+.sp-mood .pos { background: var(--green); } .sp-mood .neu { background: #64748b; } .sp-mood .neg { background: var(--red); }
+.sp-filters { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1rem; }
+.sp-chip { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); border-radius: 999px; padding: .3rem .8rem; font-size: .8rem; cursor: pointer; text-transform: capitalize; }
+.sp-chip.active, .sp-chip:hover { color: var(--text); border-color: var(--accent); }
+.sp-posts { list-style: none; display: flex; flex-direction: column; gap: .5rem; }
+.sp-post { display: flex; gap: .75rem; align-items: flex-start; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .7rem .9rem; }
+.sp-post.hidden { display: none; }
+.sp-post-main { flex: 1; min-width: 0; }
+.sp-post-title { color: var(--text); font-weight: 600; overflow-wrap: anywhere; }
+.sp-meta { display: flex; flex-wrap: wrap; gap: .35rem .7rem; font-size: .74rem; color: var(--text-muted); margin-top: .3rem; }
+.sp-platform { font-weight: 700; }
+.sp-hackernews { color: #ff6600; } .sp-lobsters { color: #ac130d; } .sp-devto { color: #c4b5fd; }
+.sp-lemmy { color: #22c55e; } .sp-arxiv { color: #f87171; } .sp-federal_register { color: #60a5fa; }
+.sp-tag { text-transform: capitalize; }
+.sp-sent.sp-positive { color: var(--green); } .sp-sent.sp-negative { color: var(--red); }
+@media (max-width: 600px) { .sp-search-form { flex-direction: column; } }

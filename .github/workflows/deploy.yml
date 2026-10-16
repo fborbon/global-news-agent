@@ -30,3 +30,26 @@ jobs:
             pip install -r requirements.txt --quiet
             DEPLOY_LOCAL_DIR=/var/www/forwardforecasting/global-news-agent python main.py --regenerate
             echo "✓ Global News deployed at $(date -u)"
+
+  lambda:
+    name: Update the Social Pulse search Lambda
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::295936871972:role/github-actions-global-news-deploy
+          aws-region: eu-west-1
+
+      # Only the code is deployed; the function, its role, URL, CORS and concurrency cap are
+      # managed outside the repo (see the README's "Social Pulse" section).
+      - name: Deploy handler.py
+        run: |
+          cd lambda/social_pulse_search && zip -q ../../lambda.zip handler.py && cd ../..
+          aws lambda update-function-code --function-name social-pulse-search --zip-file fileb://lambda.zip >/dev/null
+          aws lambda wait function-updated-v2 --function-name social-pulse-search
+          echo "✓ social-pulse-search updated"

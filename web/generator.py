@@ -16,6 +16,7 @@ from config import (
     TEMPLATES_DIR,
     WEB_OUTPUT_DIR,
     STATIC_DIR,
+    SOCIAL_PULSE_SEARCH_URL,
 )
 
 console = Console()
@@ -69,7 +70,8 @@ class WebGenerator:
     # Public entry point
     # ------------------------------------------------------------------
 
-    def generate(self, region_summaries: dict[str, dict], breaking_events: list[dict], today: str, generated_at: str | None = None) -> None:
+    def generate(self, region_summaries: dict[str, dict], breaking_events: list[dict], today: str, generated_at: str | None = None,
+                 social_pulse: dict | None = None) -> None:
         console.log("[cyan]Generating static site …[/cyan]")
         # Clear stale region pages so removed countries don't persist
         regions_dir = self.out / "regions"
@@ -78,11 +80,12 @@ class WebGenerator:
         regions_dir.mkdir()
         self._copy_static()
         topic_highlights = self._build_topic_highlights(region_summaries)
-        self._render_index(region_summaries, breaking_events, today, topic_highlights, generated_at)
+        self._render_index(region_summaries, breaking_events, today, topic_highlights, generated_at, social_pulse)
         for region, digest in region_summaries.items():
             self._render_region(region, digest, today, generated_at)
         self._render_breaking(breaking_events, today, generated_at)
         self._save_json(region_summaries, breaking_events, today)
+        self._save_social_pulse(social_pulse)
         self._save_world_news(region_summaries)
         self._save_archive_index(today)
         self._save_dates_manifest(today)
@@ -93,7 +96,8 @@ class WebGenerator:
     # ------------------------------------------------------------------
 
     def _render_index(self, summaries: dict, breaking: list, today: str,
-                      topic_highlights: dict, generated_at: str | None = None) -> None:
+                      topic_highlights: dict, generated_at: str | None = None,
+                      social_pulse: dict | None = None) -> None:
         tmpl = self.env.get_template("index.html")
         region_cards = []
         for region, meta in _ACTIVE_REGION_META.items():
@@ -121,6 +125,8 @@ class WebGenerator:
             grouped=grouped,
             critical_count=sum(1 for e in breaking if e.get("severity") == "critical"),
             topic_highlights=topic_highlights,
+            social_pulse=social_pulse,
+            social_pulse_search_url=SOCIAL_PULSE_SEARCH_URL,
             static_root="static",
             root="",
             active_region=None,
@@ -212,6 +218,16 @@ class WebGenerator:
         (data_dir / f"breaking_{today}.json").write_text(
             json.dumps(breaking, ensure_ascii=False, indent=2), encoding="utf-8"
         )
+
+    def _save_social_pulse(self, social_pulse: dict | None) -> None:
+        """data/social_pulse.json is the latest feed: the search Lambda reads it from the live site."""
+        if not social_pulse:
+            return
+        data_dir = self.out / "data"
+        data_dir.mkdir(exist_ok=True)
+        payload = json.dumps(social_pulse, ensure_ascii=False)
+        (data_dir / "social_pulse.json").write_text(payload, encoding="utf-8")
+        (data_dir / f"social_pulse_{social_pulse['date']}.json").write_text(payload, encoding="utf-8")
 
     def _save_world_news(self, summaries: dict) -> None:
         """Write data/world_news.json with up to 3 stories per covered region."""

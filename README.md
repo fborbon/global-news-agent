@@ -31,6 +31,7 @@
 11. [Cost & Resource Consumption](#11-cost--resource-consumption)
 12. [Auditing](#12-auditing)
 13. [CI/CD](#13-cicd)
+14. [Social Pulse Tab](#14-social-pulse-tab)
 
 ---
 
@@ -358,6 +359,7 @@ During development with 22 countries the multi-turn tool-use approach accumulate
 | `_save_json()` | `data/summaries_DATE.json` + `data/breaking_DATE.json` | Raw JSON for external consumption |
 | `_save_archive_index()` | `index_DATE.html` | Dated snapshot of the index page for the day selector |
 | `_save_dates_manifest()` | `data/available_dates.json` | Ordered list of available dates consumed by the JS day picker |
+| `_save_social_pulse()` | `data/social_pulse.json` (+ dated copy) | Today's Social Pulse posts and briefings; also read by the search Lambda ([Section 14](#14-social-pulse-tab)) |
 
 `shutil.copytree` refreshes the `static/` assets on every run. After generation, `main.py` rsyncs `web/output/` to the live EC2 server automatically.
 
@@ -779,7 +781,7 @@ All figures are based on measured token usage from actual pipeline runs (22 coun
 
 ### 11.2 AWS EC2 — Infrastructure
 
-The pipeline runs as a cron job on an existing `t3.small` instance (eu-west-1) that also hosts the portfolio site, SP500bot, and social-pulse. The full EC2 cost is shared across all projects.
+The pipeline runs as a cron job on an existing `t3.small` instance (eu-west-1) that also hosts the portfolio site and several other projects. The full EC2 cost is shared across all projects.
 
 | Resource | Unit price | Monthly | Yearly |
 |----------|-----------|---------|--------|
@@ -807,9 +809,10 @@ The pipeline runs as a cron job on an existing `t3.small` instance (eu-west-1) t
 | Cost centre | Monthly | Yearly |
 |-------------|---------|--------|
 | AWS Bedrock (Nova Lite + Pro) | $0.93 | $11.32 |
+| Social Pulse: Nova Micro briefings + search Lambda ([Section 14](#14-social-pulse-tab)) | ~$0.02 to $0.15 | ~$0.25 to $1.80 |
 | EC2 t3.small + EBS (shared) | $18.82 | $225.84 |
-| **Grand total** | **~$19.75** | **~$237.16** |
-| **Bedrock only** *(incremental)* | **~$0.93** | **~$11.32** |
+| **Grand total** | **~$19.80** | **~$237.80** |
+| **AI only** *(incremental)* | **~$0.95 to $1.08** | **~$11.60 to $13.10** |
 
 > The EC2 was already paid for. If you attribute only the incremental cost of running this project, the total is **under $1/month** — roughly $11/year.
 
@@ -912,3 +915,55 @@ flowchart TD
     style CRON fill:#8e44ad,color:#fff
     style EC2 fill:#e67e22,color:#fff
 ```
+
+---
+
+## 14. Social Pulse Tab
+
+The fifth tab, **📡 Social Pulse**, shows what tech communities, researchers and regulators are talking about today. It began as a separate project (an event-driven Kafka + GraphQL architecture, still available as a reference in its own public repository) and was folded into this site in October 2026 to retire an always-on service: the old stand-alone demo kept about 150 MB of RAM in use around the clock for a feed that changes once a day.
+
+| Feature | How it works | Runs on |
+|---|---|---|
+| **Posts** | `social_pulse/collector.py` pulls the public, keyless feeds of Hacker News, Lobste.rs, Dev.to, Lemmy (technology community), arXiv and the US Federal Register; tags each post with a topic (word-overlap scoring against topic vocabularies), merges near-duplicate titles across sites, ranks by community score and freshness, and adds a rule-based sentiment | the daily 07:15 UTC pipeline run, ~1 minute |
+| **Daily briefings** | 2-3 sentence summary per busy topic (≥ 3 posts, up to 8 topics) written by **Amazon Nova Micro** (`eu.amazon.nova-micro-v1:0`) | same run |
+| **AI search (RAG)** | the browser sends the question to the `social-pulse-search` **AWS Lambda** (eu-west-1, function URL). It loads `data/social_pulse.json` from the live site (cached 15 min), retrieves the 6 best posts with **BM25** in pure Python, and asks Nova Micro to answer from those posts only, citing them `[1]`, `[2]` | AWS Lambda, scales to zero |
+
+```mermaid
+flowchart LR
+    subgraph Daily["Daily pipeline (EC2 cron, 07:15 UTC)"]
+        S[6 public feeds] --> C[collector.py<br/>topic · dedup · rank · sentiment]
+        C --> B[Nova Micro<br/>topic briefings]
+        B --> J[data/social_pulse.json<br/>+ Social Pulse tab HTML]
+    end
+    U[Browser: Social Pulse tab] -->|question| L[Lambda social-pulse-search<br/>BM25 retrieval]
+    J -->|HTTPS, cached 15 min| L
+    L -->|6 posts + question| N[Nova Micro]
+    N -->|answer + citations| U
+```
+
+**Why a Lambda for search:** it is the only interactive part, and it is used a few times a day at most. A Lambda costs nothing while idle and uses no memory on the shared EC2 host; the daily collection runs inside the existing batch job, so Social Pulse adds **no long-running process** to the server.
+
+**Guard rails on the public endpoint:** questions are capped at 200 characters, at most 6 posts go to the model, answers are capped at 350 tokens, the system prompt tells the model to ignore instructions inside questions or posts, browsers may only call it from `forwardforecasting.eu` pages (CORS), and the function's reserved concurrency is **2**, which bounds the spend even under abuse.
+
+**Infrastructure (managed outside the repo, created with the AWS CLI):**
+
+| Resource | Purpose |
+|---|---|
+| Lambda `social-pulse-search` (Python 3.12, arm64, 256 MB, 20 s timeout, reserved concurrency 2) | the search endpoint; code in `lambda/social_pulse_search/handler.py` |
+| Function URL (auth NONE, CORS `https://www.forwardforecasting.eu`, `https://forwardforecasting.eu`, POST) | public HTTPS entry point, set as `SOCIAL_PULSE_SEARCH_URL` in `config.py` |
+| IAM role `social-pulse-search-lambda` | CloudWatch Logs + `bedrock:InvokeModel` on Nova Micro (EU inference profile) only |
+| IAM role `github-actions-global-news-deploy` (GitHub OIDC, `main` branch only) | lets the CI `lambda` job update the function's code, nothing else |
+| CloudWatch log group `/aws/lambda/social-pulse-search` | 30-day retention |
+
+**Running it:** `python main.py --social-pulse` refreshes only the Social Pulse data and regenerates the site (useful after a failed collection). Set `SOCIAL_PULSE_ENABLED=0` to switch the tab off; a failure in the collection never stops the news pipeline, it only reuses the previous Social Pulse data.
+
+**Cost:**
+
+| Item | Monthly |
+|---|---|
+| Nova Micro briefings (≤ 8 calls/day, ~4k input + ~1.5k output tokens) | ~$0.01 |
+| Nova Micro search answers (~$0.0001 each; 100 to 1,000 questions/month) | ~$0.01 to $0.10 |
+| Lambda requests and compute | $0 (well inside the always-free tier) |
+| CloudWatch Logs | ~$0.01 |
+| EC2 RAM / CPU | none at idle (collection adds ~1 minute to the daily run) |
+
