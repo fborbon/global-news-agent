@@ -142,6 +142,10 @@ DEPLOY_LOCAL_DIR = os.getenv("DEPLOY_LOCAL_DIR", "")
 # Daily community/research/regulation feed (social_pulse/collector.py) plus an AI search
 # answered by the social-pulse-search Lambda (lambda/social_pulse_search), not by this host.
 SOCIAL_PULSE_ENABLED    = os.getenv("SOCIAL_PULSE_ENABLED", "1") == "1"
+
+# ── AI News tab ───────────────────────────────────────────────────────────────
+# Curated AI blogs with weekly Nova Lite summaries + monthly most-cited AI papers (ai_news/).
+AI_NEWS_ENABLED = os.getenv("AI_NEWS_ENABLED", "1") == "1"
 SOCIAL_PULSE_SEARCH_URL = os.getenv("SOCIAL_PULSE_SEARCH_URL", "https://ciznj77ygowj5kuj7dzoibgqqu0nbjpv.lambda-url.eu-west-1.on.aws/")
 
 MAX_ARTICLES_PER_SOURCE = 5

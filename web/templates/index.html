@@ -39,6 +39,7 @@
   <button class="tab-btn" data-tab="breaking">⚡ Breaking News</button>
   <button class="tab-btn" data-tab="favorites">⭐ Favorites</button>
   {% if social_pulse %}<button class="tab-btn" data-tab="social">📡 Social Pulse</button>{% endif %}
+  {% if ai_news %}<button class="tab-btn" data-tab="ainews">🤖 AI News</button>{% endif %}
 </nav>
 
 <!-- ══ Tab 1: World Map ══════════════════════════════════════════ -->
@@ -297,6 +298,71 @@
     </ul>
   </section>
 </div><!-- /tab-social -->
+{% endif %}
+
+{% if ai_news %}
+<div class="tab-pane" id="tab-ainews">
+  <section class="section">
+    <h2 class="section-title">🤖 AI News</h2>
+    <p class="ai-intro">Top AI engineering and research blogs, each with an AI summary of what it published in the
+      last 7 days, and the month's most-cited foundational AI papers. Two AI agents built on Amazon Nova Lite:
+      one reads the blogs' RSS feeds and summarises them, the other ranks papers from Semantic Scholar, keeps only
+      core AI research (not applied use-cases) and explains each in plain English.</p>
+  </section>
+
+  <section class="section">
+    <h3 class="section-title">📰 Top AI blogs</h3>
+    <div class="region-grid">
+      {% for blog in ai_news.blogs %}
+      <div class="region-card">
+        <a class="card-link" href="{{ blog.url }}" target="_blank" rel="noopener">
+          <div class="card-header"><span class="card-label">{{ blog.name }}</span></div>
+          <p class="card-overview">{{ blog.best_for }}</p>
+          {% if blog.weekly_summary %}
+          <p class="ai-weekly"><strong>{{ "Last 7 days" if blog.is_recent | default(true) else "Latest posts" }}:</strong> {{ blog.weekly_summary }}</p>
+          {% endif %}
+          <span class="card-cta">Visit blog →</span>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if ai_news.digest %}
+  <section class="section">
+    <div class="ai-papers-header">
+      <h3 class="section-title" id="ai-papers-title">📄 Top {{ ai_news.digest.papers | length }} cited papers — {{ ai_news.digest.month_label }}</h3>
+      {% if ai_news.months | length > 1 %}
+      <div class="date-selector">
+        <select class="date-select" id="ai-month-select" aria-label="Month">
+          {% for m in ai_news.months %}<option value="{{ m.path }}">{{ m.label }}{% if loop.first %} — latest{% endif %}</option>{% endfor %}
+        </select>
+      </div>
+      {% endif %}
+    </div>
+    <p class="ai-intro">Ranked by citation count on Semantic Scholar among papers published that month. Summaries are AI-generated from each paper's abstract.</p>
+    <div id="ai-papers-list" class="rank-list">
+      {% for paper in ai_news.digest.papers %}
+      <article class="rank-card">
+        <div class="rank-num">{{ loop.index }}</div>
+        <div class="rank-body">
+          <div class="rank-header">
+            <span class="rank-cat">{{ paper.venue if paper.venue else "Preprint" }} &middot; {{ paper.publication_date }}</span>
+            <span class="severity-badge">{{ paper.citation_count }} citations</span>
+          </div>
+          <h3 class="rank-title"><a class="headline-link" href="{{ paper.url }}" target="_blank" rel="noopener">{{ paper.title }}</a></h3>
+          <p class="rank-summary">{{ paper.plain_summary }}</p>
+          {% if paper.key_contribution %}<p class="rank-summary"><strong>Key contribution:</strong> {{ paper.key_contribution }}</p>{% endif %}
+          {% if paper.authors %}<p class="ai-authors">{{ paper.authors | join(", ") }}{% if paper.authors | length == 5 %} et al.{% endif %}</p>{% endif %}
+        </div>
+      </article>
+      {% else %}
+      <p class="empty-state">No papers found for this month yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</div>
 {% endif %}
 
 {% endblock %}

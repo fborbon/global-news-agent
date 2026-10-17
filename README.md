@@ -32,6 +32,7 @@
 12. [Auditing](#12-auditing)
 13. [CI/CD](#13-cicd)
 14. [Social Pulse Tab](#14-social-pulse-tab)
+15. [AI News Tab](#15-ai-news-tab)
 
 ---
 
@@ -360,6 +361,7 @@ During development with 22 countries the multi-turn tool-use approach accumulate
 | `_save_archive_index()` | `index_DATE.html` | Dated snapshot of the index page for the day selector |
 | `_save_dates_manifest()` | `data/available_dates.json` | Ordered list of available dates consumed by the JS day picker |
 | `_save_social_pulse()` | `data/social_pulse.json` (+ dated copy) | Today's Social Pulse posts and briefings; also read by the search Lambda ([Section 14](#14-social-pulse-tab)) |
+| `ai_news.pipeline.refresh()` | `data/ai_news_blogs.json`, `data/ai_news_papers_YYYY-MM.json`, `data/ai_news_months.json` | AI News tab: blog summaries (daily), one papers digest per month, the month list for the picker ([Section 15](#15-ai-news-tab)) |
 
 `shutil.copytree` refreshes the `static/` assets on every run. After generation, `main.py` rsyncs `web/output/` to the live EC2 server automatically.
 
@@ -625,6 +627,12 @@ News_agent/
 │   ├── summarizer_agent.py     # Claude Sonnet 4.6 · tool-use loop · per-region digest
 │   └── breaking_news_agent.py  # Claude Sonnet 4.6 · single call · global event detection
 │
+├── ai_news/                    # AI News tab (Section 15)
+│   ├── blog_agent.py           # RSS/Atom + Nova Lite weekly blog summaries
+│   ├── paper_agent.py          # Semantic Scholar + Nova Lite core-vs-applied ranking, summaries
+│   ├── pipeline.py             # daily blogs, monthly papers, data files for the tab
+│   └── config.py               # curated blog list, model, paper query
+│
 ├── sources/
 │   └── news_sources.py         # 75 verified RSS feeds across 22 countries
 │
@@ -810,9 +818,10 @@ The pipeline runs as a cron job on an existing `t3.small` instance (eu-west-1) t
 |-------------|---------|--------|
 | AWS Bedrock (Nova Lite + Pro) | $0.93 | $11.32 |
 | Social Pulse: Nova Micro briefings + search Lambda ([Section 14](#14-social-pulse-tab)) | ~$0.02 to $0.15 | ~$0.25 to $1.80 |
+| AI News: Nova Lite blog summaries + monthly papers digest ([Section 15](#15-ai-news-tab)) | ~$0.01 | ~$0.12 |
 | EC2 t3.small + EBS (shared) | $18.82 | $225.84 |
-| **Grand total** | **~$19.80** | **~$237.80** |
-| **AI only** *(incremental)* | **~$0.95 to $1.08** | **~$11.60 to $13.10** |
+| **Grand total** | **~$19.81** | **~$237.92** |
+| **AI only** *(incremental)* | **~$0.96 to $1.09** | **~$11.72 to $13.22** |
 
 > The EC2 was already paid for. If you attribute only the incremental cost of running this project, the total is **under $1/month** — roughly $11/year.
 
@@ -966,4 +975,34 @@ flowchart LR
 | Lambda requests and compute | $0 (well inside the always-free tier) |
 | CloudWatch Logs | ~$0.01 |
 | EC2 RAM / CPU | none at idle (collection adds ~1 minute to the daily run) |
+
+---
+
+## 15. AI News Tab
+
+The sixth tab, **🤖 AI News**, is a centralized source for AI news: a hand-curated directory of 13 AI engineering and research blogs, each with an AI summary of what it published in the last 7 days, plus the month's 5 most-cited *foundational* AI papers (model architecture, training methods, agents; not applied use-cases). It was a separate site until October 2026 and was folded in here so it shares the daily run, the hosting and the deploy instead of keeping its own schedule.
+
+Two **AI agents**, both on **Amazon Nova Lite** through Amazon Bedrock (EU cross-region profile `eu.amazon.nova-lite-v1:0`, region set by `AI_NEWS_BEDROCK_REGION`, default `eu-west-1`):
+
+| Agent | What it does | Runs |
+|---|---|---|
+| `ai_news/blog_agent.py` (BlogAgent) | reads each blog's RSS/Atom feed (**feedparser**), keeps the posts of the last 7 days (or the last 3 when a blog was quiet) and has Nova Lite summarise the blog's week in at most 500 characters. A blog without a feed is listed with a link only, never with invented content | every daily pipeline run |
+| `ai_news/paper_agent.py` (PaperAgent) | queries the **Semantic Scholar Graph API** (bulk search, **httpx**) for the most-cited papers published in the last completed month, sends the top 25 with abstracts to Nova Lite to classify each as core AI research or an application of AI, and writes a plain-English summary and key contribution for the top 5 core papers | when that month's digest is missing, i.e. once a month |
+
+```mermaid
+flowchart LR
+    subgraph Daily["Daily pipeline (EC2 cron, 07:15 UTC)"]
+        R[13 blog feeds<br/>RSS / Atom] --> BA[BlogAgent<br/>Nova Lite weekly summary]
+        SS[Semantic Scholar<br/>top-cited of last month] -->|only if missing| PA[PaperAgent<br/>Nova Lite: core vs applied,<br/>plain-English summary]
+        BA --> D[data/ai_news_*.json]
+        PA --> D
+        D --> T[AI News tab HTML]
+    end
+    T --> U[Browser]
+    U -->|month picker| D
+```
+
+**Running it:** `python main.py --ai-news` refreshes only the AI News data and regenerates the site. Set `AI_NEWS_ENABLED=0` to switch the tab off. A failure in either agent keeps the previous data and never stops the news pipeline. Older months stay available through the month picker, which loads `data/ai_news_papers_YYYY-MM.json` in the browser.
+
+**Cost:** about 13 short Nova Lite calls a day for the blogs and one classification + summary call a month for the papers, about **$0.01 a month**. No extra process, memory or schedule on the server.
 

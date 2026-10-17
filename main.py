@@ -19,7 +19,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 
-from config import DEPLOY_LOCAL_DIR, SCHEDULE_TIMES, SOCIAL_PULSE_ENABLED, WEB_OUTPUT_DIR
+from config import AI_NEWS_ENABLED, DEPLOY_LOCAL_DIR, SCHEDULE_TIMES, SOCIAL_PULSE_ENABLED, WEB_OUTPUT_DIR
 from agents.orchestrator import OrchestratorAgent
 from web.generator import WebGenerator
 
@@ -192,6 +192,20 @@ def _load_social_pulse() -> dict | None:
     return None
 
 
+# ── AI News ───────────────────────────────────────────────────────────────────
+
+def _refresh_ai_news(blogs: bool = True, papers: bool = True) -> None:
+    """Blog summaries daily, papers digest when last month's is missing (ai_news/pipeline.py).
+    Failures keep the previous data and never stop the news site."""
+    if not AI_NEWS_ENABLED:
+        return
+    try:
+        from ai_news.pipeline import refresh
+        refresh(WEB_OUTPUT_DIR, blogs=blogs, papers=papers)
+    except Exception as e:
+        console.print(f"[yellow]AI News skipped: {type(e).__name__}: {e}[/yellow]")
+
+
 # ── Pipeline runner ───────────────────────────────────────────────────────────
 
 def run_pipeline(resume: bool = False) -> None:
@@ -207,6 +221,7 @@ def run_pipeline(resume: bool = False) -> None:
 
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     social_pulse = _collect_social_pulse(pipeline_result["date"]) or _load_social_pulse()
+    _refresh_ai_news()
 
     generator = WebGenerator()
     generator.generate(
@@ -286,10 +301,16 @@ def main() -> None:
     parser.add_argument("--demo",       action="store_true", help="Run with mock data (no API calls)")
     parser.add_argument("--regenerate", action="store_true", help="Rebuild site from last saved data, no API calls")
     parser.add_argument("--social-pulse", action="store_true", help="Refresh only the Social Pulse tab, then regenerate the site")
+    parser.add_argument("--ai-news", action="store_true", help="Refresh only the AI News tab, then regenerate the site")
     args = parser.parse_args()
 
     if args.demo:
         run_demo()
+        return
+
+    if args.ai_news:
+        _refresh_ai_news()
+        run_regenerate()
         return
 
     if args.social_pulse:

@@ -302,3 +302,32 @@ document.querySelectorAll('.sp-chip').forEach(chip => {
     }
   });
 })();
+
+/* ── AI News tab: month picker for the papers digest ───────────────────────
+   The latest month is rendered server-side; older months load from data/ai_news_papers_*.json. */
+(function () {
+  const select = document.getElementById('ai-month-select');
+  const list = document.getElementById('ai-papers-list');
+  const title = document.getElementById('ai-papers-title');
+  if (!select || !list || !title) return;
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  select.addEventListener('change', () => {
+    fetch(select.value, { cache: 'no-store' }).then(r => r.json()).then(d => {
+      title.textContent = `📄 Top ${d.papers.length} cited papers — ${d.month_label}`;
+      list.innerHTML = d.papers.length ? d.papers.map((p, i) => `
+        <article class="rank-card">
+          <div class="rank-num">${i + 1}</div>
+          <div class="rank-body">
+            <div class="rank-header">
+              <span class="rank-cat">${esc(p.venue || 'Preprint')} &middot; ${esc(p.publication_date)}</span>
+              <span class="severity-badge">${p.citation_count} citations</span>
+            </div>
+            <h3 class="rank-title"><a class="headline-link" href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.title)}</a></h3>
+            <p class="rank-summary">${esc(p.plain_summary)}</p>
+            ${p.key_contribution ? `<p class="rank-summary"><strong>Key contribution:</strong> ${esc(p.key_contribution)}</p>` : ''}
+            ${p.authors && p.authors.length ? `<p class="ai-authors">${esc(p.authors.join(', '))}${p.authors.length === 5 ? ' et al.' : ''}</p>` : ''}
+          </div>
+        </article>`).join('') : '<p class="empty-state">No papers found for this month yet.</p>';
+    }).catch(() => { list.innerHTML = '<p class="empty-state">Could not load that month.</p>'; });
+  });
+})();

@@ -8,6 +8,8 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 from rich.console import Console
 
+from ai_news.pipeline import load as ai_news_load
+
 from config import (
     BREAKING_CATEGORIES,
     REGION_META,
@@ -127,6 +129,7 @@ class WebGenerator:
             topic_highlights=topic_highlights,
             social_pulse=social_pulse,
             social_pulse_search_url=SOCIAL_PULSE_SEARCH_URL,
+            ai_news=ai_news_load(self.out),
             static_root="static",
             root="",
             active_region=None,
