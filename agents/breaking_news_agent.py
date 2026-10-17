@@ -126,7 +126,15 @@ class BreakingNewsAgent:
         try:
             result = json.loads(text)
             if isinstance(result, list):
-                return result
+                # The model sometimes invents a category (sports, cyber_security, ...). The page
+                # looks each event's category up in BREAKING_CATEGORIES, so one invented key used
+                # to crash the whole day's build; drop such events instead.
+                valid = [e for e in result if isinstance(e, dict) and e.get("category") in BREAKING_CATEGORIES]
+                if len(valid) < len(result):
+                    dropped = sorted({str(e.get("category")) for e in result if e not in valid and isinstance(e, dict)})
+                    console.log(f"[yellow][BreakingNewsAgent] dropped {len(result) - len(valid)} event(s) "
+                                f"with unknown category: {', '.join(dropped)}[/yellow]")
+                return valid
         except (json.JSONDecodeError, TypeError):
             console.log("[red][BreakingNewsAgent] JSON parse failed — returning empty list[/red]")
         return []
